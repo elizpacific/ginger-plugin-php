@@ -1,0 +1,139 @@
+name: Magento2 GPE plugin
+on:
+  push:
+    branches: [ main ]
+    
+env:
+          DESTINATION_ACCOUNT: elizpacific
+          DESTINATION_REPOSITORY: ems-online-magento-2
+          DESTINATION_BRANCH: master
+          TARGET_REPOSITORY: ginger-plugin
+          VENDOR_FOLDER_SRC: /
+          USER_EMAIL: elizpacific@gmail.com
+          TESTS_FOLDER_SRC: .
+          BANK_LABEL: emspay
+jobs: 
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v3
+        with:
+          repository: elizpacific/ginger-plugin
+          token: ${{ secrets.PERSONALACCESSTOKEN  }}
+
+      - name: checkout
+        run: |
+          git checkout main
+
+      - name: saving_constants
+      
+        run: |
+          echo "Destination account: $DESTINATION_ACCOUNT"
+          echo "Destination repo: $DESTINATION_REPOSITORY"
+          echo "Branch: $DESTINATION_BRANCH"
+          echo "Target repo: $TARGET_REPOSITORY"
+          echo "Vendor folder src: $VENDOR_FOLDER_SRC"
+          echo "User email: $USER_EMAIL"
+          echo "Tests folder src: $TESTS_FOLDER_SRC"
+          echo "Band label: $BANK_LABEL"
+      - name: retrieve_version
+        run: |
+          echo "text<<EOF" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=$(git describe --abbrev=0)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: retrieve_version
+        run: |
+          echo "text<<EOF" >> $GITHUB_OUTPUT
+          echo "TAG_MESSAGE=$(git tag -l --format='%(contents) ' ${{  steps.version.outputs.TAG_NAME }})" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        id: version
+
+      - name: retrieve_tag_message
+        run: |
+          echo "text<<EOF" >> $GITHUB_OUTPUT
+          echo "TAG_MESSAGE=$(git tag -l --format='%(contents) ' ${{  steps.version.outputs.TAG_NAME }})" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        id: message
+
+      - name: getting_bank_func_from_remote_repository
+        run: |
+          sudo rm -rf ./$DESTINATION_REPOSITORY [!.git]*
+          git clone https://x-access-:${{secrets.PERSONALACCESSTOKEN}}@github.com/${{env.DESTINATION_ACCOUNT}}/${{env.DESTINATION_REPOSITORY}}
+          cd $DESTINATION_REPOSITORY/
+          git pull
+          git checkout bank-func
+          echo "copying_bank_func_into_main"
+          cp -R * ../
+          cd ../
+          ls
+          echo " Successfully merged with bank_func"
+        continue-on-error: false
+
+      - name: removing ${{env.DESTINATION_REPOSITORY}}"
+        run: |
+          ls -la
+          rm -r ${{env.DESTINATION_REPOSITORY}}/
+
+          ls -la 
+          echo "What inside ${{env.DESTINATION_REPOSITORY}} : "
+        continue-on-error: false
+          
+      - name: cd
+        run:
+          cd ..
+
+      - name: removing tests/ folder
+        run: |
+          echo "Removing ${{env.VENDOR_FOLDER_SRC}}/Tests/ folder"
+          sudo rm -rf Tests/          
+        continue-on-error: false
+
+      - name: removing_vendor_folder
+        run: |
+          sudo rm -rf vendor/
+          sudo rm -rf composer.lock
+          sudo rm -rf Library/vendor/
+          sudo rm -rf Library/composer.lock
+          ls -la
+        continue-on-error: false
+        
+
+      - name: create_a_asset_zip
+        run: |
+          mkdir GingerPay
+          mkdir GingerPay/Payment
+          rsync -recursive ./* ./GingerPay/Payment/
+          rm -r ./GingerPay/Payment/GingerPay/
+          zip -vr ems-online.zip ./GingerPay/Payment -x "*.DS_Store"
+
+        continue-on-error: false
+
+
+      - name: create_release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONALACCESSTOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ steps.version.outputs.TAG_NAME }}
+          commitish: ${{env.DESTINATION_BRANCH}}
+          release_name: ${{ steps.message.outputs.TAG_MESSAGE }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+          owner: ${{env.DESTINATION_ACCOUNT}}
+          repo: ${{env.DESTINATION_REPOSITORY}}
+        continue-on-error: false
+
+      - name: upload_release_asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONALACCESSTOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ./ems-online.zip
+          asset_name: ems-online.zip
+          asset_content_type: application/zip
+        continue-on-error: false
