@@ -1,0 +1,23 @@
+name: CI
+
+on:
+ 
+  push:
+    branches: [ development ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GINGER_API_KEY: ${{ secrets.GINGER_API_KEY }} 
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependecies
+        run: composer install
+      - name: set .env vars
+        run: |
+          sudo find -name '.env' -exec sed -i 's%PUBLIC_API_URL=%PUBLIC_API_URL=https://api.dev.gingerpayments.com%' {} +
+          sudo find -name '.env' -exec sed -i 's%ORDER_ID_FOR_TESTS=%ORDER_ID_FOR_TESTS=77782838-df30-403d-8f58-753d083ebddb%' {} +
+      - name: Run all tests
+        run: vendor/bin/phpunit src/Tests
