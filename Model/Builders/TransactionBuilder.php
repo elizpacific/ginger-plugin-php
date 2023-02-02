@@ -218,7 +218,7 @@ class TransactionBuilder
 
     /**
      * @param OrderInterface $order
-     * @param null|array $transaction
+     * @param \GingerPluginSdk\Entities\Order $transaction
      * @param null|string $testModus
      *
      * @return array
@@ -229,11 +229,11 @@ class TransactionBuilder
         $method = $order->getPayment()->getMethod();
         $this->updateMailingAddress($order, $method, $transaction);
         $this->configRepository->addTolog('transaction', $transaction);
-        $transactionId = !empty($transaction['id']) ? $transaction['id'] : null;
+        $transactionId = !empty($transaction->getId()->get()) ? $transaction->getId()->get() : null;
 
         if ($transactionId && !$this->configRepository->getError($transaction)) {
             $method = $this->getMethodFromOrder($order);
-            $message = __('EMS Order ID: %1', $transactionId);
+            $message = __('Ginger Order ID: %1', $transactionId);
             $status = $this->configRepository->getStatusPending($method, (int)$order->getStoreId());
             $order->addStatusToHistory($status, $message, false);
             $order->setGingerpayTransactionId($transactionId);
@@ -259,9 +259,8 @@ class TransactionBuilder
             return ['redirect' => $transaction['order_url']];
         }
 
-
-        if ($transaction !== null && !empty(current($transaction['transactions'])['payment_url'])) {
-            return ['redirect' => current($transaction['transactions'])['payment_url']];
+        if ($transaction !== null && !empty($transaction->getCurrentTransaction()->getPaymentUrl()->get())) {
+            return ['redirect' => $transaction->getCurrentTransaction()->getPaymentUrl()->get()];
         }
 
         return ['error' => __('Error, could not fetch redirect url')];
@@ -276,10 +275,11 @@ class TransactionBuilder
      * @return array
      * @throws LocalizedException
      */
-    public function processUpdate(array $transaction, OrderInterface $order, string $type): array
+    public function processUpdate(\GingerPluginSdk\Entities\Order $transaction, OrderInterface $order, string $type): array
     {
-        $status = !empty($transaction['status']) ? $transaction['status'] : '';
-        $customerMessage = !empty(current($transaction['transactions'])['customer_message']) ? current($transaction['transactions'])['customer_message'] : null;
+        $status = !empty($transaction->getStatus()->get()) ? $transaction->getStatus()->get() : '';
+
+        $customerMessage = !empty($transaction->toArray()['transactions']['customer_message']) ? $transaction->toArray()['transactions']['customer_message'] : null;
 
         switch ($status) {
             case 'error':
@@ -338,7 +338,7 @@ class TransactionBuilder
      * @return array
      * @throws LocalizedException
      */
-    public function complete(array $transaction, OrderInterface $order, string $type): array
+    public function complete(\GingerPluginSdk\Entities\Order $transaction, OrderInterface $order, string $type): array
     {
         /** @var Payment $payment */
         $payment = $order->getPayment();

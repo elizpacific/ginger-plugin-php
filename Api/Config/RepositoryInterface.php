@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace GingerPay\Payment\Api\Config;
 
+use GingerPluginSdk\Entities\Order;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Store\Api\Data\StoreInterface;
 
@@ -183,11 +184,11 @@ interface RepositoryInterface
     /**
      * Find error in transaction
      *
-     * @param array $transaction
+     * @param Order $transaction
      *
      * @return bool|string
      */
-    public function getError(array $transaction);
+    public function getError(Order $transaction);
 
     /**
      * @param float $amount

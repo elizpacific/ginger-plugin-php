@@ -10,11 +10,16 @@ require_once  __DIR__.'/Mocks/UrlProvider.php';
 require_once  __DIR__.'/Mocks/OrderLines.php';
 require_once  __DIR__.'/Mocks/Customer.php';
 
+use GingerPluginSdk\Properties\Amount;
+use GingerPluginSdk\Properties\Currency;
+use GingerPluginSdk\Entities\Client;
+
 use GingerPay\Payment\Tests\ClassSeparators\ConfigRepositoryBuilderSeparator;
 use GingerPay\Payment\Tests\Mocks\Order;
 use GingerPay\Payment\Tests\Mocks\OrderLines;
 use GingerPay\Payment\Tests\Mocks\UrlProvider;
 use GingerPay\Payment\Tests\Mocks\Customer;
+use GingerPluginSdk\Tests\OrderStub;
 use PHPUnit\Framework\TestCase;
 use GingerPay\Payment\Tests\ClassSeparators\ServiceOrderBuilderSeparator;
 
@@ -28,52 +33,32 @@ class CreateOrderTest extends TestCase
     private $expectedArray;
     private $configRepository;
 
+    private $client;
+
     public function setUp() : void
     {
+        $this->client = new Client();
+
         $this->orderBuilder = new ServiceOrderBuilderSeparator();
-        $this->order = new Order();
+        $this->order = new OrderStub();
         $this->urlProvider = new UrlProvider();
         $this->orderLines = new OrderLines();
         $this->customerData = Customer::getCustomerData();
         $this->configRepository = new ConfigRepositoryBuilderSeparator();
 
-        $this->expectedArray = array(
-            "currency" => "EUR",
-            "amount" => 500,
-            "merchant_order_id" => 638,
-            "customer"  => [
-                "merchant_customer_id" => "638",
-                "email_address" => "Test3@ukr.net",
-                'first_name' => "Jon",
-                'last_name' => "Doe",
-                'address_type' => "billing",
-                'address' => "Donauweg 10",
-                'postal_code' => "1043 AJ",
-                'housenumber' => "10",
-                'country' => "NL",
-                'phone_numbers' => [ '0' => "0555869119"]],
-            "description" => "Your order 638 at Your order %id% at %name%",
-            "return_url" => "https://magento2.test/ginger/checkout/process/",
+        $_SERVER["REMOTE_ADDR"] = "173.0.2.5";
+        $_SERVER["HTTP_USER_AGENT"] = "PHPUnit Tests";
 
-            "transactions" => [["payment_method" => 'ideal']],
-            "extra" => [
-                "user_agent" => 'USER_AGENT',
-                "platform_name" => "Magento2",
-                "platform_version" => '2.2.11',
-                "plugin_name" => $this->configRepository->getPluginName(),
-                "plugin_version" => $this->configRepository->getPluginVersion()],
-            "order_lines" => [[
-                '0' => [
-                    'type' => 'physical',
-                    'url' => 'https://magento2.test/newsuperproduct.html',
-                    'name' => 'NewSuperProduct',
-                    'amount' => '500',
-                    'currency' => 'EUR',
-                    'quantity' => '1',
-                    'vat_percentage' => 0,
-                    'merchant_order_line_id' => 638
-                ]
-            ]],
+        $this->expectedArray = array(
+            "currency" => new Currency('EUR'),
+            "amount" => new Amount(500),
+            "merchant_order_id" => 638,
+            "customer"  => $this->order->getValidCustomer(),
+            "description" => "Your order 638 at Your order %id% at %name%",
+            "return_url" => 'http://test.com/return',
+            "transactions" => $this->order->getValidTransactions(),
+            "extra" => $this->order->getValidExtra(),
+            "order_lines" => $this->order->getValidOrderLines(),
             "webhook_url" => "https://magento2.test/ginger/checkout/webhook/"
         );
 
@@ -102,14 +87,14 @@ class CreateOrderTest extends TestCase
             "user_agent" => 'USER_AGENT',
             "platform_name" => "Magento2",
             "platform_version" => '2.2.11',
-            "plugin_name" => $this->configRepository->getPluginName(),
-            "plugin_version" => $this->configRepository->getPluginVersion()];
+            "plugin_name" => (string)$this->client->getPluginName(),
+            "plugin_version" => (string)$this->client->getPluginVersion()];
         $this->assertEquals($this->orderBuilder->getExtraLines(), $expectedExtraLines, 'Function getExtraLines returned not expected array');
     }
 
     public function testOrderCreation()
     {
-        $orderArray = $this->orderBuilder->collectDataForOrder($this->order, 'ideal', 'ginger_methods_ideal', $this->urlProvider, $this->orderLines, $this->customerData);
+        $orderArray = $this->orderBuilder->collectData($this->order, 'ideal', 'ginger_methods_ideal', $this->urlProvider, $this->orderLines, $this->customerData);
         $this->assertEquals($this->expectedArray, $orderArray, 'Order array does not match the expectation');
     }
 }

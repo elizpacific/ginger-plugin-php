@@ -5,8 +5,19 @@ namespace GingerPay\Payment\Model\Builders;
 use GingerPay\Payment\Model\Methods\Afterpay;
 use GingerPay\Payment\Model\Methods\KlarnaPayLater;
 use GingerPay\Payment\Model\Methods\KlarnaPayNow;
+use GingerPluginSdk\Collections\AdditionalAddresses;
+use GingerPluginSdk\Collections\PhoneNumbers;
+use GingerPluginSdk\Collections\Transactions;
+use GingerPluginSdk\Entities\Address;
+use GingerPluginSdk\Entities\Customer;
 use GingerPluginSdk\Entities\Order;
+use GingerPluginSdk\Entities\PaymentMethodDetails;
+use GingerPluginSdk\Entities\Transaction;
 use GingerPluginSdk\Properties\Amount;
+use GingerPluginSdk\Properties\Country;
+use GingerPluginSdk\Properties\EmailAddress;
+use GingerPluginSdk\Properties\Locale;
+use GingerPluginSdk\Tests\OrderStub;
 use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\App\ProductMetadata;
 use Magento\Quote\Api\Data\PaymentInterface;
@@ -205,66 +216,80 @@ class ServiceOrderBuilder
         return $size - $pos - strlen($needle);
     }
 
-    /**
-     * @param $platformCode
-     * @param $issuer_id
-     *
-     * @return array
-     */
-
     public function getTransactions($platformCode, $issuer_id = null, $verifiedTermsOfService = null)
     {
-        return [
-            array_filter([
-                "payment_method"         => $platformCode,
-                "payment_method_details" => array_filter(
-                    [
-                        "issuer_id" => $issuer_id,
-                        "verified_terms_of_service" => $verifiedTermsOfService
-                    ]
-                )
-            ])
-        ];
+        return new Transaction(
+            paymentMethod: $platformCode,
+            paymentMethodDetails: new PaymentMethodDetails(
+                issuer_id: $issuer_id,
+                verified_terms_of_service: $verifiedTermsOfService
+            )
+        );
     }
 
     /**
      * @param $order
      * @param $paymentDetails
      * @param $customerData
-     *
+     * @param $urlProvider
      * @return Order
      */
-    public function collectData( $order, $paymentDetails, $customerData)
+    public function collectData($order, $paymentDetails, $customerData, $urlProvider)
     {
-        return new Order(
-            currency:  new Currency('EUR'),// new Currency($payment_amount->getCurrencyCode()),
-            amount: new Amount(floatval(1)*100),
-            transactions: $paymentDetails,
-            customer: $customerData
-        );
-    }
-
-    /**
-     * Collect data for order
-     *
-     * @return array
-     */
-
-    public function collectDataForOrder($order, $methodCode, $urlProvider, $orderLines, $paymentDetails, $customerData = null)
-    {
-        $orderData = array_filter([
-            'amount' => $this->configRepository->getAmountInCents((float)$order->getBaseGrandTotal()),
-            'currency' => $order->getOrderCurrencyCode(),
-            'description' => $this->configRepository->getDescription($order, $methodCode),
-            'merchant_order_id' => $order->getIncrementId(),
-            'return_url' => $urlProvider->getReturnUrl(),
-            'webhook_url' => $urlProvider->getWebhookUrl(),
-            'transactions' => $paymentDetails,
-            'extra' => $this->getExtraLines(),
-            'order_lines' => $orderLines->get($order),
-            'customer' => $customerData
-        ]);
-        return $orderData;
+//        if($paymentDetails == 'pay-now'){
+//            return new Order(
+//                currency: new Currency('EUR'),// new Currency($payment_amount->getCurrencyCode()),
+//                amount: new Amount($amount % 10),
+//                customer: new Customer(
+//                    additionalAddresses: new AdditionalAddresses(
+//                        new Address(
+//                            addressType: $customerData['address_type'],
+//                            postalCode: $customerData['postal_code'],
+//                            country: new Country($customerData['country'])
+//                        ),
+//                    ),
+//                    firstName: $customerData['first_name'],
+//                    lastName: $customerData['last_name'],
+//                    emailAddress: new EmailAddress($customerData['email_address']),
+//                    phoneNumbers: new PhoneNumbers(),
+//                    country: new Country($customerData['country']),
+//                    locale: new Locale($customerData['locale']),
+//                    merchantCustomerId: $customerData['merchant_customer_id']
+//                ),
+//                webhook_url: $urlProvider->getWebhookUrl(),
+//                return_url: $urlProvider->getReturnUrl()
+//            );
+//        } else {
+//        dd($order->getBaseGrandTotal());
+            return new Order(
+                currency: new Currency($order->getOrderCurrencyCode()),
+                amount: new Amount( (int)($order->getBaseGrandTotal())),
+                transactions: new Transactions(
+                    new Transaction(
+                        paymentMethodDetails: new PaymentMethodDetails(),
+                        paymentMethod: $paymentDetails
+                    )
+                ),
+                customer: new Customer(
+                    additionalAddresses: new AdditionalAddresses(
+                        new Address(
+                            addressType: $customerData['address_type'],
+                            postalCode: $customerData['postal_code'],
+                            country: new Country($customerData['country'])
+                        ),
+                    ),
+                    firstName: $customerData['first_name'],
+                    lastName: $customerData['last_name'],
+                    emailAddress: new EmailAddress($customerData['email_address']),
+                    phoneNumbers: new PhoneNumbers(),
+                    country: new Country($customerData['country']),
+                    locale: new Locale($customerData['locale']),
+                    merchantCustomerId: $customerData['merchant_customer_id']
+                ),
+                webhook_url: $urlProvider->getWebhookUrl(),
+                return_url: $urlProvider->getReturnUrl()
+            );
+//        }
     }
 
     /**

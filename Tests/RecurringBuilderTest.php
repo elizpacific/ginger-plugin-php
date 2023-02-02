@@ -7,9 +7,13 @@ require_once  __DIR__.'/ClassSeparators/ConfigRepositoryBuilderSeparator.php';
 
 use GingerPay\Payment\Tests\ClassSeparators\RecurringBuilderSeparator;
 use GingerPay\Payment\Tests\Mocks\Order;
+use GingerPluginSdk\Properties\Amount;
+use GingerPluginSdk\Properties\Currency;
 use PHPUnit\Framework\TestCase;
 use GingerPay\Payment\Tests\ClassSeparators\CreditcardSeparator as Creditcard;
 use GingerPay\Payment\Tests\ClassSeparators\ConfigRepositoryBuilderSeparator;
+use GingerPluginSdk\Tests\OrderStub;
+use GingerPluginSdk\Tests\CreateOrderTest as CreateOrder;
 
 class RecurringBuilderTest extends TestCase
 {
@@ -18,57 +22,27 @@ class RecurringBuilderTest extends TestCase
     private $configRepository;
     private $expectedArray;
 
-    public function setUp() : void    {
-        $this->order = new Order();
+    public function setUp() : void
+    {
+        $this->order = new OrderStub();
         $this->recurringBuilder = new RecurringBuilderSeparator();
         $this->configRepository = new ConfigRepositoryBuilderSeparator();
 
-        $this->expectedArray = array(
-            "currency" => "EUR",
-            "amount" => 500,
-            "merchant_order_id" => 638,
-            "customer"  => [
-                "merchant_customer_id" => "638",
-                "email_address" => "Test3@ukr.net",
-                'first_name' => "Jon",
-                'last_name' => "Doe",
-                'address_type' => "billing",
-                'address' => "Donauweg 10",
-                'postal_code' => "1043 AJ",
-                'housenumber' => "10",
-                'country' => "NL",
-                'phone_numbers' => [ '0' => "0555869119"]],
-            "description" => "Your order 638 at Your order %id% at %name%",
-            "return_url" => "https://magento2.test/ginger/checkout/process/",
+        $_SERVER["REMOTE_ADDR"] = "173.0.2.5";
+        $_SERVER["HTTP_USER_AGENT"] = "PHPUnit Tests";
 
-            "transactions" => [[
-                "payment_method" => 'credit-card',
-                "payment_method_details" => [
-                    "vault_token" => 'c4da3cdb-aa96-48cc-ba09-22a321c801e6',
-                    "recurring_type" => 'recurring'
-                ]
-            ]],
-            "extra" => [
-                "user_agent" => 'USER_AGENT',
-                "platform_name" => "Magento2",
-                "platform_version" => '2.2.11',
-                "plugin_name" => $this->configRepository->getPluginName(),
-                "plugin_version" => $this->configRepository->getPluginVersion()],
-            "order_lines" => [[
-                '0' => [
-                    'type' => 'physical',
-                    'url' => 'https://magento2.test/newsuperproduct.html',
-                    'name' => 'NewSuperProduct',
-                    'amount' => '500',
-                    'currency' => 'EUR',
-                    'quantity' => '1',
-                    'vat_percentage' => 0,
-                    'merchant_order_line_id' => 638
-                ]
-            ]],
+        $this->expectedArray = array(
+            "currency" => new Currency('EUR'),
+            "amount" => new Amount(500),
+            "merchant_order_id" => 638,
+            "customer"  => $this->order->getValidCustomer(),
+            "description" => "Your order 638 at Your order %id% at %name%",
+            "return_url" => 'http://test.com/return',
+            "transactions" => $this->order->getValidTransactions(),
+            "extra" => $this->order->getValidExtra(),
+            "order_lines" => $this->order->getValidOrderLines(),
             "webhook_url" => "https://magento2.test/ginger/checkout/webhook/"
         );
-
     }
 
     public function testIsOrderForRecurring()
