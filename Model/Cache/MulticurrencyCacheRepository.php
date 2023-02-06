@@ -21,9 +21,10 @@ class MulticurrencyCacheRepository
     public function set($client)
     {
         $currencyList = fopen(__DIR__."/currencyList.json", "w+");
+        $list = $client->getCurrencyList();
         $currencyData = json_encode([
                 'term_of_action' => date("Y-m-d H:i:s", strtotime('+2 hours')),
-                'currency_list' => $client->getCurrencyList()
+                'currency_list' => $list
             ]
         );
 

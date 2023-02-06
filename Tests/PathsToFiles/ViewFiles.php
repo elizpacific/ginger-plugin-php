@@ -47,6 +47,7 @@ class ViewFiles
         'view/frontend/web/template/payment/afterpay.html',
         'view/frontend/web/template/payment/default.html',
         'view/frontend/web/template/payment/ideal.html',
+        'view/frontend/web/template/payment/creditcard.html',
         'view/frontend/web/template/payment/klarnapaylater.html',
         'view/frontend/requirejs-config.js',
     ];

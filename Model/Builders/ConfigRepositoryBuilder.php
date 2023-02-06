@@ -446,4 +446,14 @@ class ConfigRepositoryBuilder extends ApiBuilder implements ConfigRepositoryInte
     {
         return (bool)$this->getFlag(self::XML_PATH_IMAGES);
     }
+
+    /**
+     * Check is recurring enable
+     *
+     * @return bool
+     */
+    public function isRecurringEnable(): bool
+    {
+        return (bool)$this->getFlag(self::XML_PATH_RECURRING_ENABLE);
+    }
 }

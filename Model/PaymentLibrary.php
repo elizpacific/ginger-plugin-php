@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace GingerPay\Payment\Model;
 
 use Exception;
-use Ginger\ApiClient;
 use GingerPay\Payment\Api\Config\RepositoryInterface as ConfigRepository;
 use GingerPay\Payment\Model\Api\GingerClient;
 use GingerPay\Payment\Model\Api\UrlProvider;
@@ -22,6 +21,7 @@ use GingerPay\Payment\Service\Transaction\ProcessRequest as ProcessTransactionRe
 use GingerPay\Payment\Service\Transaction\ProcessUpdate as ProcessTransactionUpdate;
 use GingerPay\Payment\Model\Cache\MulticurrencyCacheRepository;
 use GingerPluginSdk\Client;
+use GingerPluginSdk\Entities\PaymentMethodDetails;
 use GingerPluginSdk\Entities\Transaction;
 use GingerPluginSdk\Properties\Amount;
 use GingerPluginSdk\Properties\Currency;
@@ -44,12 +44,18 @@ use Magento\Payment\Model\Method\Logger;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Model\Order;
+use GingerPay\Payment\Model\Builders\RecurringBuilder;
+
 
 /**
  * PaymentLibrary payment class
  */
 class PaymentLibrary extends AbstractMethod
 {
+    /**
+     * @var RecurringBuilder
+     */
+    public $recurringBuilder;
     /**
      * @var ServiceOrderBuilder
      */
@@ -162,6 +168,7 @@ class PaymentLibrary extends AbstractMethod
      * @param GingerClient $gingerClient
      * @param ProcessTransactionRequest $processTransactionRequest
      * @param ProcessTransactionUpdate $processTransactionUpdate
+     * @param RecurringBuilder $recurringBuilder
      * @param OrderLines $orderLines
      * @param OrderDataCollector $orderDataCollector
      * @param CustomerData $customerData
@@ -187,6 +194,7 @@ class PaymentLibrary extends AbstractMethod
         GingerClient $gingerClient,
         ProcessTransactionRequest $processTransactionRequest,
         ProcessTransactionUpdate $processTransactionUpdate,
+        RecurringBuilder $recurringBuilder,
         OrderLines $orderLines,
         OrderDataCollector $orderDataCollector,
         ServiceOrderBuilder $orderData,
@@ -217,6 +225,7 @@ class PaymentLibrary extends AbstractMethod
         $this->gingerClient = $gingerClient;
         $this->processTransactionRequest = $processTransactionRequest;
         $this->processTransactionUpdate = $processTransactionUpdate;
+        $this->recurringBuilder = $recurringBuilder;
         $this->customerData = $customerData;
         $this->orderLines = $orderLines;
         $this->orderDataCollector = $orderDataCollector;
@@ -472,6 +481,7 @@ class PaymentLibrary extends AbstractMethod
         $custumerData = $this->customerData->get($order, $methodCode);
         $issuer = null;
         $verifiedTermsOfService = null;
+        $paymentMethodDetails = null;
 
         $additionalData = $order->getPayment()->getAdditionalInformation();
 
@@ -489,6 +499,14 @@ class PaymentLibrary extends AbstractMethod
                 $testApiKey = $this->configRepository->getKlarnaTestApiKey((int)$order->getStoreId());
                 $testModus = $testApiKey ? 'klarna' : false;
                 break;
+            case 'credit-card':
+                $additionalData = $order->getPayment()->getAdditionalInformation();
+                if ($this->configRepository->isRecurringEnable() && $additionalData['periodicity'] != 'once') {
+                    $data["recurring_type"] = 'first';
+                    $paymentMethodDetails = (new PaymentMethodDetails($data));
+//                    $paymentMethodDetails["recurring_type"] = 'first';
+                }
+                break;
             case 'ideal':
                 $additionalData = $order->getPayment()->getAdditionalInformation();
                 if (isset($additionalData['issuer']))
@@ -500,7 +518,8 @@ class PaymentLibrary extends AbstractMethod
 
         $paymentDetails = $this->orderDataCollector->getTransactions($platformCode, $issuer, $verifiedTermsOfService)->getPaymentMethod()->get();
 
-        $data = $this->orderData->collectData($order, $paymentDetails, $custumerData,  $this->urlProvider);
+          $data = $this->orderData->collectData($order, $paymentDetails, $custumerData,  $this->urlProvider, $paymentMethodDetails);
+//        dd($data);
         $client = $this->loadGingerClient((int)$order->getStoreId(), $testApiKey);
 
         $transaction = $client->sendOrder($data);

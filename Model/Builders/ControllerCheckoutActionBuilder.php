@@ -120,7 +120,7 @@ class ControllerCheckoutActionBuilder extends Action
             try {
                 $result = $methodInstance->startTransaction($order);
             } catch (\Exception $e) {
-                dd($e);
+//                dd($e);
                 $this->messageManager->addErrorMessage(
                     __('Could not start transaction, please select other payment method.')
                 );

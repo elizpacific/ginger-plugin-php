@@ -96,6 +96,58 @@ class ApiBuilder
     }
 
     /**
+     * Get function
+     *
+     * @param int $storeId
+     * @param string $testApiKey
+     *
+     * @return bool|\Ginger\ApiClient
+     * @throws \Exception
+     */
+    public function getApiClient(int $storeId = null, string $testApiKey = null)
+    {
+
+        if ($this->client !== null && $testApiKey === null) {
+            return $this->client;
+        }
+
+        if (empty($storeId)) {
+            $storeId = $this->configRepository->getCurrentStoreId();
+        }
+
+        if ($testApiKey !== null) {
+            $this->apiKey = $testApiKey;
+        }
+
+        if ($this->apiKey === null) {
+            $this->apiKey = $this->configRepository->getApiKey((int)$storeId);
+        }
+
+        if ($this->endpoint === null) {
+            $this->endpoint = $this->urlProvider->getEndPoint();
+        }
+
+        if (!$this->apiKey || !$this->endpoint) {
+            $this->configRepository->addTolog('error', 'Missing Api Key / Api Endpoint');
+            return false;
+        }
+
+        try {
+            $gingerClient = new \Ginger\Ginger;
+            try {
+                $this->client = $gingerClient->createClient($this->endpoint, $this->apiKey);
+            } catch (Exception $e) {
+                if ($e instanceof HttpException && $e->getStatusCode()== 401) {
+                    dd('you are not authorized');
+                }
+            }
+        } catch(\Error $e) {
+            //TODO: Ginger library was not found. Check composer installation or try install plugin manually
+        }
+        return $this->client;
+    }
+
+    /**
      * Return Url Builder
      *
      * @return mixed

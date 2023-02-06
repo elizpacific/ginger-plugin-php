@@ -34,6 +34,14 @@ interface RepositoryInterface
     const MODULE_CODE = 'GingerPay_Payment';
     const METHOD_PREFIX = 'ginger_methods_';
     const PLUGIN_NAME = 'ems-online-magento-2';
+    public const XML_PATH_RECURRING_ENABLE = 'payment/ginger_methods_creditcard/recurring';
+
+    /**
+     * Is recurring enable
+     *
+     * @return bool
+     */
+    public function isRecurringEnable(): bool;
 
     /**
      * Availability check, on Active, API Client & API Key
