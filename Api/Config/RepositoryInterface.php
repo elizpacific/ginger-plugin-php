@@ -16,6 +16,7 @@ use Magento\Store\Api\Data\StoreInterface;
  */
 interface RepositoryInterface
 {
+
     const XML_PATH_MODULE_ACTIVE = 'payment/ginger_general/enabled';
     const XML_PATH_APIKEY = 'payment/ginger_general/apikey';
     const XML_PATH_VERSION = 'payment/ginger_general/version';
