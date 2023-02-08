@@ -1,0 +1,4 @@
+methodsjs_arr=('ginger_methods_sofort' 'ginger_methods_tikkie' 'ginger_methods_klarnadirectdebit')
+methods_arr=('sofort.xml' 'tikkie.xml' 'klarnadirectdebit.xml')
+configmethods_arr=("ginger_methods_tikkie" "ginger_methods_sofort" "ginger_methods_klarnadirectdebit")
+providerphpmethods_arr=('Tikkie' 'Sofort' 'KlarnaDirectDebit')

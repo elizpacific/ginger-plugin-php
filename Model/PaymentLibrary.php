@@ -20,10 +20,16 @@ use GingerPay\Payment\Service\Order\OrderDataCollector;
 use GingerPay\Payment\Service\Transaction\ProcessRequest as ProcessTransactionRequest;
 use GingerPay\Payment\Service\Transaction\ProcessUpdate as ProcessTransactionUpdate;
 use GingerPay\Payment\Model\Cache\MulticurrencyCacheRepository;
+use GingerPluginSdk\Client;
+use GingerPluginSdk\Entities\PaymentMethodDetails;
+use GingerPluginSdk\Entities\Transaction;
+use GingerPluginSdk\Properties\Amount;
+use GingerPluginSdk\Properties\Currency;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\Api\AttributeValueFactory;
 use Magento\Framework\Api\ExtensionAttributesFactory;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\ErrorHandler;
 use Magento\Framework\Data\Collection\AbstractDb;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
@@ -38,12 +44,18 @@ use Magento\Payment\Model\Method\Logger;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Model\Order;
+use GingerPay\Payment\Model\Builders\RecurringBuilder;
+
 
 /**
  * PaymentLibrary payment class
  */
 class PaymentLibrary extends AbstractMethod
 {
+    /**
+     * @var RecurringBuilder
+     */
+    public $recurringBuilder;
     /**
      * @var ServiceOrderBuilder
      */
@@ -156,6 +168,7 @@ class PaymentLibrary extends AbstractMethod
      * @param GingerClient $gingerClient
      * @param ProcessTransactionRequest $processTransactionRequest
      * @param ProcessTransactionUpdate $processTransactionUpdate
+     * @param RecurringBuilder $recurringBuilder
      * @param OrderLines $orderLines
      * @param OrderDataCollector $orderDataCollector
      * @param CustomerData $customerData
@@ -181,6 +194,7 @@ class PaymentLibrary extends AbstractMethod
         GingerClient $gingerClient,
         ProcessTransactionRequest $processTransactionRequest,
         ProcessTransactionUpdate $processTransactionUpdate,
+        RecurringBuilder $recurringBuilder,
         OrderLines $orderLines,
         OrderDataCollector $orderDataCollector,
         ServiceOrderBuilder $orderData,
@@ -211,6 +225,7 @@ class PaymentLibrary extends AbstractMethod
         $this->gingerClient = $gingerClient;
         $this->processTransactionRequest = $processTransactionRequest;
         $this->processTransactionUpdate = $processTransactionUpdate;
+        $this->recurringBuilder = $recurringBuilder;
         $this->customerData = $customerData;
         $this->orderLines = $orderLines;
         $this->orderDataCollector = $orderDataCollector;
@@ -261,16 +276,17 @@ class PaymentLibrary extends AbstractMethod
 
 
     /**
-     * Extra checks for method availability
-     *
      * @param CartInterface|null $quote
      *
-     * @return bool
+     * @return bool|Exception
+     *
      * @throws LocalizedException
      * @throws NoSuchEntityException
      */
     public function isAvailable(CartInterface $quote = null)
     {
+        $testApiKey = null;
+
         if ($quote == null) {
             $quote = $this->checkoutSession->getQuote();
         }
@@ -279,17 +295,26 @@ class PaymentLibrary extends AbstractMethod
             return false;
         }
 
-//        $currencyForCurrentPayment = $this->getAvailableCurrency();
-//
-//        if (!$currencyForCurrentPayment) {
-//            return false;
-//        }
-//
-//        if (!in_array($quote->getQuoteCurrencyCode(), $currencyForCurrentPayment)) {
-//            return false;
-//        }
+        $error = new ErrorHandler();
+        $client = $this->loadGingerClient((int)$quote->getStoreId(), $testApiKey);
 
-        return parent::isAvailable($quote);
+        try{
+            if($this->platform_code == 'pay-now'){
+                return true;
+            }
+            else {
+                $currencyForCurrentPayment = $client->checkAvailabilityForPaymentMethodUsingCurrency($this->platform_code, new Currency($quote->getStoreCurrencyCode()));
+            }
+        } catch (\Exception $e){
+            if ($e instanceof $error){
+                return false;
+            } else {
+                return $e->getMessage();
+            }
+        }
+
+        return $currencyForCurrentPayment;
+
     }
 
     /**
@@ -363,7 +388,7 @@ class PaymentLibrary extends AbstractMethod
         $transaction = $client->getOrder($transactionId);
         $this->configRepository->addTolog('process', $transaction);
 
-        if (empty($transaction['id'])) {
+        if (empty($transaction->getId()->get())) {
             $msg = ['error' => true, 'msg' => __('Transaction not found')];
             $this->configRepository->addTolog('error', $msg);
             return $msg;
@@ -376,15 +401,15 @@ class PaymentLibrary extends AbstractMethod
      * @param int $storeId
      * @param string $testApiKey
      *
-     * @return bool|\Ginger\ApiClient
+     * @return Client
      * @throws \Exception
      */
     public function loadGingerClient(int $storeId = null, string $testApiKey = null)
     {
         if (!$this->client || $testApiKey !== null) {
             $this->client = $this->gingerClient->get($storeId, $testApiKey);
-//            $this->client = $this->gingerClient->get($storeId, $testApiKey);
         }
+
         return $this->client;
     }
 
@@ -399,6 +424,7 @@ class PaymentLibrary extends AbstractMethod
     }
 
     /**
+     * @param Transaction $transaction
      * @param InfoInterface $payment
      * @param float $amount
      *
@@ -417,15 +443,13 @@ class PaymentLibrary extends AbstractMethod
         $testApiKey = $this->configRepository->getTestKey((string)$method, (int)$storeId);
 
         try {
-            $client = $this->loadGingerClient($storeId, $testApiKey);
+            $client = $this->loadGingerClient((int)$order->getStoreId(), $testApiKey);
 
             $gingerOrder = $client->refundOrder(
-                $transactionId,
-                [
-                    'amount' => $this->configRepository->getAmountInCents((float)$amount),
-                    'currency' => $order->getOrderCurrencyCode()
-                ]
+                order_id: $transactionId,
+                amount: new Amount($this->configRepository->getAmountInCents((float)$amount))
             );
+
         } catch (\Exception $e) {
             $errorMsg = __('Error: not possible to create an online refund: %1', $e->getMessage());
             $this->configRepository->addTolog('error', $errorMsg);
@@ -457,6 +481,7 @@ class PaymentLibrary extends AbstractMethod
         $custumerData = $this->customerData->get($order, $methodCode);
         $issuer = null;
         $verifiedTermsOfService = null;
+        $paymentMethodDetails = null;
 
         $additionalData = $order->getPayment()->getAdditionalInformation();
 
@@ -474,6 +499,14 @@ class PaymentLibrary extends AbstractMethod
                 $testApiKey = $this->configRepository->getKlarnaTestApiKey((int)$order->getStoreId());
                 $testModus = $testApiKey ? 'klarna' : false;
                 break;
+            case 'credit-card':
+                $additionalData = $order->getPayment()->getAdditionalInformation();
+                if ($this->configRepository->isRecurringEnable() && $additionalData['periodicity'] != 'once') {
+                    $data["recurring_type"] = 'first';
+                    $paymentMethodDetails = (new PaymentMethodDetails($data));
+//                    $paymentMethodDetails["recurring_type"] = 'first';
+                }
+                break;
             case 'ideal':
                 $additionalData = $order->getPayment()->getAdditionalInformation();
                 if (isset($additionalData['issuer']))
@@ -483,9 +516,10 @@ class PaymentLibrary extends AbstractMethod
                 break;
         }
 
-        $paymentDetails = $this->orderDataCollector->getTransactions($platformCode, $issuer, $verifiedTermsOfService);
+        $paymentDetails = $this->orderDataCollector->getTransactions($platformCode, $issuer, $verifiedTermsOfService)->getPaymentMethod()->get();
 
-        $data = $this->orderData->collectData($order, $paymentDetails, $custumerData);
+          $data = $this->orderData->collectData($order, $paymentDetails, $custumerData,  $this->urlProvider, $paymentMethodDetails);
+//        dd($data);
         $client = $this->loadGingerClient((int)$order->getStoreId(), $testApiKey);
 
         $transaction = $client->sendOrder($data);

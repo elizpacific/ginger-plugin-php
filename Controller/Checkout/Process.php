@@ -30,7 +30,7 @@ class Process extends ActionRedefiner
      * @param Session $checkoutSession
      * @param PaymentHelper $paymentHelper
      * @param PaymentLibraryModel $paymentLibraryModel
-     * @param ConfigRepository   $configRepository
+     * @param ConfigRepository $configRepository
      */
     public function __construct(
         Context $context,

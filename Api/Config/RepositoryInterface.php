@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace GingerPay\Payment\Api\Config;
 
+use GingerPluginSdk\Entities\Order;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Store\Api\Data\StoreInterface;
 
@@ -15,6 +16,7 @@ use Magento\Store\Api\Data\StoreInterface;
  */
 interface RepositoryInterface
 {
+
     const XML_PATH_MODULE_ACTIVE = 'payment/ginger_general/enabled';
     const XML_PATH_APIKEY = 'payment/ginger_general/apikey';
     const XML_PATH_VERSION = 'payment/ginger_general/version';
@@ -33,6 +35,14 @@ interface RepositoryInterface
     const MODULE_CODE = 'GingerPay_Payment';
     const METHOD_PREFIX = 'ginger_methods_';
     const PLUGIN_NAME = 'ems-online-magento-2';
+    public const XML_PATH_RECURRING_ENABLE = 'payment/ginger_methods_creditcard/recurring';
+
+    /**
+     * Is recurring enable
+     *
+     * @return bool
+     */
+    public function isRecurringEnable(): bool;
 
     /**
      * Availability check, on Active, API Client & API Key
@@ -183,11 +193,11 @@ interface RepositoryInterface
     /**
      * Find error in transaction
      *
-     * @param array $transaction
+     * @param Order $transaction
      *
      * @return bool|string
      */
-    public function getError(array $transaction);
+    public function getError(Order $transaction);
 
     /**
      * @param float $amount

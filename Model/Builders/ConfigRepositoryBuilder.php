@@ -2,12 +2,13 @@
 
 namespace GingerPay\Payment\Model\Builders;
 
-require_once __DIR__.'/ApiBuilder.php';
-require_once __DIR__.'/../../Api/Config/RepositoryInterface.php';
+require_once __DIR__ . '/ApiBuilder.php';
+require_once __DIR__ . '/../../Api/Config/RepositoryInterface.php';
 
 use GingerPay\Payment\Api\Config\RepositoryInterface as ConfigRepositoryInterface;
 use GingerPay\Payment\Model\Methods\Afterpay;
 use GingerPay\Payment\Model\Methods\KlarnaPayLater;
+use GingerPluginSdk\Entities\Order;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\ScopeInterface;
@@ -334,19 +335,21 @@ class ConfigRepositoryBuilder extends ApiBuilder implements ConfigRepositoryInte
     /**
      * {@inheritDoc}
      */
-    public function getError(array $transaction)
+    public function getError(Order $transaction)
     {
-        if ($transaction['status'] == 'error' && (current($transaction['transactions'])['customer_message']))
+        $status = $transaction->getStatus()->get();
+        if ($status == 'error' && $transaction->getCurrentTransaction()->getCustomerMessage())
         {
-            return current($transaction['transactions'])['customer_message'];
+            return $transaction->getCurrentTransaction()->getCustomerMessage();
         }
-        if (!empty($transaction['customer_messages']))
+
+        if (!empty($transaction->getCurrentTransaction()->getCustomerMessage()))
         {
-            return current($transaction['customer_messages'])["message"];
+            return $transaction->getCurrentTransaction()->getCustomerMessage();
         }
-        if ($transaction['status'] == 'cancelled')
+        if ($status == 'cancelled')
         {
-            $method = current($transaction['transactions'])['payment_method'];
+            $method = $transaction->getCurrentTransaction()->getPaymentMethod();
             if ($method == $this->getShortMethodCode(Afterpay::METHOD_CODE) || $method == $this->getShortMethodCode(KlarnaPayLater::METHOD_CODE))
             {
                 $methodName = 'payment';
@@ -442,5 +445,15 @@ class ConfigRepositoryBuilder extends ApiBuilder implements ConfigRepositoryInte
     public function displayPaymentImages(): bool
     {
         return (bool)$this->getFlag(self::XML_PATH_IMAGES);
+    }
+
+    /**
+     * Check is recurring enable
+     *
+     * @return bool
+     */
+    public function isRecurringEnable(): bool
+    {
+        return (bool)$this->getFlag(self::XML_PATH_RECURRING_ENABLE);
     }
 }

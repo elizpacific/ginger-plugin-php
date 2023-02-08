@@ -105,12 +105,11 @@ class ControllerCheckoutActionBuilder extends Action
     public function redirect()
     {
         $order = $this->checkoutSession->getLastRealOrder();
-        $order->getPayment();
+
         try {
             $method = $order->getPayment()->getMethod();
             $methodInstance = $this->paymentHelper->getMethodInstance($method);
         } catch (\Exception $e) {
-            dd($e);
             $this->messageManager->addErrorMessage('Unknown Error');
             $this->configRepository->addTolog('error', 'Unknown Error');
             $this->checkoutSession->restoreQuote();
@@ -121,6 +120,7 @@ class ControllerCheckoutActionBuilder extends Action
             try {
                 $result = $methodInstance->startTransaction($order);
             } catch (\Exception $e) {
+//                dd($e);
                 $this->messageManager->addErrorMessage(
                     __('Could not start transaction, please select other payment method.')
                 );

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace GingerPay\Payment\Controller\Adminhtml\Action;
 
+use Ginger\ApiClient;
 use GingerPay\Payment\Api\Config\RepositoryInterface as ConfigRepository;
 use GingerPay\Payment\Model\Api\GingerClient;
 use Magento\Backend\App\Action;
@@ -96,7 +97,7 @@ class Apikey extends Action
                 $success = false;
             } else {
                 $client->getIdealIssuers();
-                $this->multicurrencyCacheRepository->set($client);
+                $client->removeCachedMultiCurrency();
                 $results[] = '<span class="ginger-success">' . __('Success!') . '</span>';
             }
         } catch (\Exception $e) {
@@ -104,7 +105,6 @@ class Apikey extends Action
             $this->configRepository->addTolog('error', $e->getMessage());
             $success = false;
         }
-
         return $result->setData(['success' => $success, 'msg' => implode('<br/>', $results)]);
     }
 }

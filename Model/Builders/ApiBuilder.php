@@ -2,11 +2,12 @@
 
 namespace GingerPay\Payment\Model\Builders;
 
+use GingerPluginSdk\Client;
 use GingerPluginSdk\Properties\ClientOptions;
 
-if (file_exists(__DIR__ ."/../../Library/vendor/autoload.php"))
+if (file_exists(__DIR__ . "/../../Library/vendor/autoload.php"))
 {
-    require_once __DIR__ ."/../../Library/vendor/autoload.php";
+    require_once __DIR__ . "/../../Library/vendor/autoload.php";
 }
 
 
@@ -93,6 +94,7 @@ class ApiBuilder
 
         return $gingerClient;
     }
+
 
     /**
      * Return Url Builder
