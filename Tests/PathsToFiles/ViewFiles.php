@@ -56,4 +56,5 @@ class ViewFiles
     {
         return self::$viewFiles;
     }
+
 }
