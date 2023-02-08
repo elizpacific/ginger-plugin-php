@@ -91,13 +91,13 @@ class Apikey extends Action
         }
 
         try {
-            $client = $this->client->getApiClient((int)$storeId, $apiKey);
+            $client = $this->client->get((int)$storeId, $apiKey);
             if (!$client) {
                 $results[] = '<span class="ginger-error">' . __('Error! '.$apiKey.'Invalid API Key.') . '</span>';
                 $success = false;
             } else {
                 $client->getIdealIssuers();
-                $this->multicurrencyCacheRepository->set($client);
+                $client->removeCachedMultiCurrency();
                 $results[] = '<span class="ginger-success">' . __('Success!') . '</span>';
             }
         } catch (\Exception $e) {

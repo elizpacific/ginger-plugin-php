@@ -338,15 +338,15 @@ class ConfigRepositoryBuilder extends ApiBuilder implements ConfigRepositoryInte
     public function getError(Order $transaction)
     {
         $status = $transaction->getStatus()->get();
-        $status = 'created';
         if ($status == 'error' && $transaction->getCurrentTransaction()->getCustomerMessage())
         {
             return $transaction->getCurrentTransaction()->getCustomerMessage();
         }
-//        if (!empty($transaction['customer_messages']))
-//        {
-//            return current($transaction['customer_messages'])["message"];
-//        }
+
+        if (!empty($transaction->getCurrentTransaction()->getCustomerMessage()))
+        {
+            return $transaction->getCurrentTransaction()->getCustomerMessage();
+        }
         if ($status == 'cancelled')
         {
             $method = $transaction->getCurrentTransaction()->getPaymentMethod();

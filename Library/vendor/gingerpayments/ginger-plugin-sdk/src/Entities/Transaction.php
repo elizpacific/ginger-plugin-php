@@ -23,8 +23,8 @@ final class Transaction implements MultiFieldsEntityInterface
     private MultiFieldsEntityInterface $paymentMethodDetails;
     private BaseField $id;
     private BaseField $paymentUrl;
-    private BaseField $reason;
-    private BaseField $customerMessage;
+    private BaseField|null $reason;
+    private $customerMessage = null;
     private BaseField $isCapturable;
     private BaseField $isFullyCaptured;
 
