@@ -95,6 +95,7 @@ class ApiBuilder
         return $gingerClient;
     }
 
+
     /**
      * Return Url Builder
      *
